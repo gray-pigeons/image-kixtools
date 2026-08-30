@@ -1,4 +1,4 @@
-{
-  "name": "image-kixtools",
-  "compatibility_date": "2026-08-28"
-}
+name = "image-kixtools"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
