@@ -1,3 +1,5 @@
 name = "image-kixtools"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-08-31"
 
+[assets]
+directory = "./dist"
