@@ -1,0 +1,54 @@
+{
+  "name": "taro-image-compressor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kix 图片压缩 - 微信小程序版（Taro + WASM 本地压缩）",
+  "templateInfo": {
+    "name": "default",
+    "typescript": true,
+    "css": "Sass",
+    "framework": "React"
+  },
+  "scripts": {
+    "build:worker": "node scripts/build-worker.mjs",
+    "pack:wasm": "node scripts/pack-wasm.mjs",
+    "test:worker": "node scripts/test-worker.mjs",
+    "dev:weapp": "npm run build:worker && npm run pack:wasm && taro build --type weapp --watch",
+    "build:weapp": "npm run build:worker && npm run pack:wasm && taro build --type weapp"
+  },
+  "browserslist": [
+    "last 3 versions",
+    "Android >= 4.1",
+    "ios >= 8"
+  ],
+  "dependencies": {
+    "@babel/runtime": "^7.24.4",
+    "@jsquash/jpeg": "1.4.0",
+    "@jsquash/png": "2.2.0",
+    "@jsquash/webp": "1.4.0",
+    "@tarojs/components": "4.2.1",
+    "@tarojs/helper": "4.2.1",
+    "@tarojs/plugin-framework-react": "4.2.1",
+    "@tarojs/plugin-platform-weapp": "4.2.1",
+    "@tarojs/react": "4.2.1",
+    "@tarojs/runtime": "4.2.1",
+    "@tarojs/shared": "4.2.1",
+    "@tarojs/taro": "4.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.4",
+    "@babel/preset-react": "^7.29.7",
+    "@tarojs/cli": "4.2.1",
+    "@tarojs/webpack5-runner": "4.2.1",
+    "@types/react": "^18.3.3",
+    "@types/webpack-env": "^1.13.6",
+    "babel-preset-taro": "4.2.1",
+    "esbuild": "^0.24.2",
+    "postcss": "^8.4.38",
+    "sass": "^1.75.0",
+    "typescript": "^5.4.5",
+    "webpack": "5.91.0"
+  }
+}
