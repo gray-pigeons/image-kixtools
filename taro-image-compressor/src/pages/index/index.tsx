@@ -430,7 +430,9 @@ export default function Index() {
                     {item.status === 'pending' && <Text className="status-pending">等待中</Text>}
                     {item.status === 'processing' && <Text className="status-processing">压缩中...</Text>}
                     {item.status === 'error' && (
-                      <Text className="status-error">{item.error || '处理失败'}</Text>
+                      <Text className="status-error" userSelect>
+                        {item.error || '处理失败'}
+                      </Text>
                     )}
                     {item.status === 'complete' && item.resultSize != null && (
                       <Text className="status-done">
