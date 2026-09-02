@@ -336,6 +336,8 @@ export default function Index() {
 
     // 二次确认 + 自定义名称（editable 需基础库 >= 2.17.1，
     // 不支持的环境退化为普通确认框，content 为空时使用默认名）
+    // 注意：相册内文件名由微信/系统强制生成（安卓 mmexport+时间戳），
+    // 自定义名称实际作用于文件本体（「发送」为文件时保留）
     let nameToUse = defaultName
     let confirmed = false
     try {
@@ -356,7 +358,12 @@ export default function Index() {
     }
     if (!confirmed) return
 
-    // 相册以物理文件名命名：自定义名与结果文件不一致时生成重命名副本
+    // 自定义名称应用到条目（「发送」为文件时使用该名）
+    if (nameToUse !== defaultName) {
+      updateItem(item.id, { resultName: nameToUse })
+    }
+
+    // 部分机型保存时会沿用物理文件名：自定义名时生成重命名副本再保存
     let savePath = item.resultPath
     if (nameToUse !== defaultName) {
       const ext = fmt.ext
@@ -377,8 +384,8 @@ export default function Index() {
     const ok = await saveToAlbum(savePath)
     if (savePath !== item.resultPath) unlinkQuiet(savePath) // 清理重命名副本
     Taro.showToast({
-      title: ok ? '已保存到相册' : '保存失败，可尝试「发送」为文件',
-      icon: ok ? 'success' : 'none',
+      title: ok ? '已保存（相册内名称由系统生成）' : '保存失败，可尝试「发送」为文件',
+      icon: 'none',
     })
   }
 
