@@ -20,4 +20,6 @@ export interface ImageItem {
   sourceType?: SourceType
   qualityUsed?: number
   error?: string
+  /** 压缩进度百分比（0-100，仅 processing 状态有值） */
+  progress?: number
 }

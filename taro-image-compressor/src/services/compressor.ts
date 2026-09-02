@@ -4,10 +4,12 @@ import Taro from '@tarojs/taro'
 type WorkerMessage =
   | { type: 'done'; id: number; buffer: ArrayBuffer; size: number }
   | { type: 'error'; id: number; message: string }
+  | { type: 'progress'; id: number; progress: number }
 
 interface PendingJob {
   resolve: (buffer: ArrayBuffer) => void
   reject: (error: Error) => void
+  onProgress?: (progress: number) => void
 }
 
 /**
@@ -28,6 +30,11 @@ class CompressWorkerService {
       if (!msg || typeof msg !== 'object') return
       const job = this.pending.get(msg.id)
       if (!job) return
+      // 阶段进度消息：仅回调，不结束任务
+      if (msg.type === 'progress') {
+        job.onProgress?.(msg.progress)
+        return
+      }
       this.pending.delete(msg.id)
       if (msg.type === 'done' && msg.buffer) {
         job.resolve(msg.buffer)
@@ -62,12 +69,13 @@ class CompressWorkerService {
     buffer: ArrayBuffer,
     sourceType: string,
     outputType: string,
-    quality: number
+    quality: number,
+    onProgress?: (progress: number) => void
   ): Promise<ArrayBuffer> {
     const worker = this.ensureWorker()
     const id = this.seq++
     return new Promise<ArrayBuffer>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject })
+      this.pending.set(id, { resolve, reject, onProgress })
       worker.postMessage({
         type: 'compress',
         id,

@@ -84,7 +84,24 @@ export default function Index() {
   const processItem = async (item: ImageItem) => {
     const { outputType: outType, quality: q } = optionsRef.current
     const fmt = FORMATS.find((f) => f.type === outType)!
-    updateItem(item.id, { status: 'processing', error: undefined })
+    updateItem(item.id, { status: 'processing', error: undefined, progress: 0 })
+
+    // 进度展示：Worker 只上报阶段节点（20 解码 / 60 编码），大图在单阶段内
+    // 耗时很久，这里定时向当前阶段上限渐近爬升，让百分比持续推进
+    let cap = 10
+    let shown = 0
+    let lastShown = -1
+    const tick = setInterval(() => {
+      const next = Math.min(cap - 1, shown + Math.max(0.8, (cap - shown) * 0.08))
+      shown = next
+      const rounded = Math.floor(next)
+      if (rounded !== lastShown) {
+        lastShown = rounded
+        updateItem(item.id, { progress: rounded })
+      }
+    }, 200)
+
+    const stopTick = () => clearInterval(tick)
 
     try {
       const buffer = await readFileBuffer(item.originalPath)
@@ -110,10 +127,19 @@ export default function Index() {
         }
       }
 
-      const outBuffer = await compressor.compress(buffer, sourceType, outType, q)
+      const outBuffer = await compressor.compress(
+        buffer,
+        sourceType,
+        outType,
+        q,
+        (p) => {
+          if (p > cap) cap = p
+        }
+      )
       if (!outBuffer.byteLength) throw new Error('压缩失败')
 
       const resultPath = await writeResultFile(outBuffer, fmt.ext)
+      stopTick()
       updateItem(item.id, {
         status: 'complete',
         resultPath,
@@ -121,11 +147,14 @@ export default function Index() {
         outputType: outType,
         sourceType,
         qualityUsed: q,
+        progress: undefined,
       })
     } catch (e: any) {
+      stopTick()
       updateItem(item.id, {
         status: 'error',
         error: e?.message || '处理失败',
+        progress: undefined,
       })
     }
   }
@@ -217,6 +246,7 @@ export default function Index() {
           error: undefined,
           resultPath: undefined,
           resultSize: undefined,
+          progress: undefined,
         }
       }
       return i
@@ -448,7 +478,11 @@ export default function Index() {
 
                   <View className="item-status">
                     {item.status === 'pending' && <Text className="status-pending">等待中</Text>}
-                    {item.status === 'processing' && <Text className="status-processing">压缩中...</Text>}
+                    {item.status === 'processing' && (
+                      <Text className="status-processing">
+                        压缩中...{item.progress != null ? ` ${item.progress}%` : ''}
+                      </Text>
+                    )}
                     {item.status === 'error' && (
                       <Text className="status-error" userSelect>
                         {item.error || '处理失败'}

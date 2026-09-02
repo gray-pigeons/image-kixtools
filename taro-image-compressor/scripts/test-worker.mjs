@@ -122,11 +122,14 @@ function compress(id, buffer, sourceType, outputType, quality) {
     const startLen = replies.length
     handler({ type: 'compress', id, buffer, sourceType, outputType, quality })
     const poll = setInterval(() => {
-      const reply = replies.slice(startLen).find((r) => r.id === id)
+      // 忽略 progress 阶段消息，只等待 done / error 终态
+      const reply = replies
+        .slice(startLen)
+        .find((r) => r.id === id && (r.type === 'done' || r.type === 'error'))
       if (!reply) return
       clearInterval(poll)
       clearTimeout(timer)
-      resolve(reply)
+      resolve({ reply, messages: replies.slice(startLen).filter((r) => r.id === id) })
     }, 20)
   })
 }
@@ -140,30 +143,37 @@ const png = makeTestPng()
 
 console.log('[test] PNG -> WebP (quality 75)')
 const webp = await compress(1, png.buffer.slice(png.byteOffset, png.byteOffset + png.length), 'png', 'webp', 75)
-assert(webp.type === 'done', '压缩成功返回 done')
-assert(webp.size > 0, `输出非空（${webp.size} 字节）`)
+assert(webp.reply.type === 'done', '压缩成功返回 done')
+assert(webp.reply.size > 0, `输出非空（${webp.reply.size} 字节）`)
 {
-  const head = new Uint8Array(webp.buffer, 0, 12)
+  const head = new Uint8Array(webp.reply.buffer, 0, 12)
   assert(
     head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46 &&
       head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50,
     '输出为合法 WebP（RIFF....WEBP 魔数）'
   )
 }
+{
+  const stages = webp.messages.filter((m) => m.type === 'progress').map((m) => m.progress)
+  assert(
+    stages.includes(20) && stages.includes(60),
+    `进度阶段消息齐全（收到: ${stages.join(', ')}）`
+  )
+}
 
 console.log('[test] PNG -> JPEG (quality 80)')
 const jpeg = await compress(2, png.buffer.slice(png.byteOffset, png.byteOffset + png.length), 'png', 'jpeg', 80)
-assert(jpeg.type === 'done', '压缩成功返回 done')
+assert(jpeg.reply.type === 'done', '压缩成功返回 done')
 {
-  const head = new Uint8Array(jpeg.buffer, 0, 3)
+  const head = new Uint8Array(jpeg.reply.buffer, 0, 3)
   assert(head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff, '输出为合法 JPEG（FFD8FF 魔数）')
 }
 
 console.log('[test] PNG -> PNG（无损重编码）')
 const pngOut = await compress(3, png.buffer.slice(png.byteOffset, png.byteOffset + png.length), 'png', 'png', 100)
-assert(pngOut.type === 'done', '压缩成功返回 done')
+assert(pngOut.reply.type === 'done', '压缩成功返回 done')
 {
-  const head = new Uint8Array(pngOut.buffer, 0, 4)
+  const head = new Uint8Array(pngOut.reply.buffer, 0, 4)
   assert(
     head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47,
     '输出为合法 PNG（89504E47 魔数）'
@@ -171,16 +181,16 @@ assert(pngOut.type === 'done', '压缩成功返回 done')
 }
 
 console.log('[test] WebP 回环：WebP -> JPEG')
-const jpeg2 = await compress(4, webp.buffer, 'webp', 'jpeg', 75)
-assert(jpeg2.type === 'done', 'WebP 解码再编码成功')
-assert(jpeg2.size > 0, `输出非空（${jpeg2.size} 字节）`)
+const jpeg2 = await compress(4, webp.reply.buffer, 'webp', 'jpeg', 75)
+assert(jpeg2.reply.type === 'done', 'WebP 解码再编码成功')
+assert(jpeg2.reply.size > 0, `输出非空（${jpeg2.reply.size} 字节）`)
 
 console.log('[test] JPEG 回环：JPEG -> WebP')
-const webp2 = await compress(6, jpeg.buffer, 'jpeg', 'webp', 75)
-assert(webp2.type === 'done', 'JPEG 解码再编码成功')
-assert(webp2.size > 0, `输出非空（${webp2.size} 字节）`)
+const webp2 = await compress(6, jpeg.reply.buffer, 'jpeg', 'webp', 75)
+assert(webp2.reply.type === 'done', 'JPEG 解码再编码成功')
+assert(webp2.reply.size > 0, `输出非空（${webp2.reply.size} 字节）`)
 {
-  const head = new Uint8Array(webp2.buffer, 0, 12)
+  const head = new Uint8Array(webp2.reply.buffer, 0, 12)
   assert(
     head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46 &&
       head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50,
@@ -190,6 +200,6 @@ assert(webp2.size > 0, `输出非空（${webp2.size} 字节）`)
 
 console.log('[test] 错误路径：非法数据')
 const bad = await compress(5, new ArrayBuffer(16), 'png', 'webp', 75)
-assert(bad.type === 'error', '非法输入返回 error 而非崩溃')
+assert(bad.reply.type === 'error', '非法输入返回 error 而非崩溃')
 
 console.log('\n全部测试通过 ✓')

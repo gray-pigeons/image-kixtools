@@ -3,7 +3,8 @@
  *
  * 消息协议（主线程 <-> Worker，二进制经 postMessage 复制传递，基础库 >= 2.20.2）：
  *   入： { type: 'compress', id, buffer, sourceType, outputType, quality }
- *   出： { type: 'done', id, buffer, size } | { type: 'error', id, message }
+ *   出： { type: 'progress', id, progress }（阶段节点：20 开始解码 / 60 开始编码）
+ *      | { type: 'done', id, buffer, size } | { type: 'error', id, message }
  *
  * Worker 线程内全局暴露 worker 对象（无 wx API），
  * WASM 模块位于代码包 /wasm 目录（必须在 worker 目录之外）。
@@ -29,7 +30,11 @@ worker.onMessage((msg: CompressRequest) => {
 
   Promise.resolve()
     .then(async () => {
+      // WASM 解码/编码是同步黑盒，无法获取内部进度；
+      // 只上报阶段节点，主线程负责渐近爬升展示
+      worker.postMessage({ type: 'progress', id, progress: 20 })
       const imageData = await decode(sourceType, buffer)
+      worker.postMessage({ type: 'progress', id, progress: 60 })
       const outBuffer = await encode(outputType as any, imageData, quality)
       worker.postMessage({
         type: 'done',
