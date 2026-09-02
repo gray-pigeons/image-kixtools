@@ -13,6 +13,8 @@ export interface ImageItem {
   status: 'pending' | 'processing' | 'complete' | 'error'
   /** 压缩结果文件路径（USER_DATA_PATH 下） */
   resultPath?: string
+  /** 结果文件名（不含扩展名，原名_短后缀，用于发送命名） */
+  resultName?: string
   resultSize?: number
   /** 该条结果使用的输出格式与质量 */
   outputType?: OutputType

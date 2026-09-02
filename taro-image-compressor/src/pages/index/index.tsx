@@ -143,11 +143,14 @@ export default function Index() {
         console.warn('[png] oxipng 不可用，已用基础编码:', result.engineError)
       }
 
-      const resultPath = await writeResultFile(outBuffer, fmt.ext)
+      const resultPath = await writeResultFile(outBuffer, fmt.ext, item.name)
+      // 从实际写入路径提取文件名（含短后缀），用于发送/保存时的命名展示
+      const resultName = resultPath.split('/').pop()?.replace(/\.[^.]+$/, '') || item.name
       stopTick()
       updateItem(item.id, {
         status: 'complete',
         resultPath,
+        resultName,
         resultSize: outBuffer.byteLength,
         outputType: outType,
         sourceType,
@@ -252,6 +255,7 @@ export default function Index() {
           status: 'pending' as const,
           error: undefined,
           resultPath: undefined,
+          resultName: undefined,
           resultSize: undefined,
           progress: undefined,
           engine: undefined,
@@ -337,7 +341,8 @@ export default function Index() {
     const fmt = FORMATS.find((f) => f.type === item.outputType)!
     wx.shareFileMessage({
       filePath: item.resultPath,
-      fileName: `${item.name}.${fmt.ext}`,
+      // 结果文件名：原名_短后缀.扩展名（文件已按此名写入，保持一致）
+      fileName: `${item.resultName || item.name}.${fmt.ext}`,
       fail: () => {
         /* 用户取消或环境不支持 */
       },

@@ -116,9 +116,24 @@ export function readFileBuffer(filePath: string): Promise<ArrayBuffer> {
   })
 }
 
-/** 将压缩结果写入用户目录，返回文件路径 */
-export function writeResultFile(buffer: ArrayBuffer, ext: string): Promise<string> {
-  const fileName = `kix_${Date.now()}_${Math.floor(Math.random() * 1e6)}.${ext}`
+/** 过滤文件名中的非法字符（保留中文/字母/数字/连字符/下划线/点） */
+export function sanitizeFileName(name: string): string {
+  return name.replace(/[\\/:*?"<>|\r\n\t]/g, '').trim() || 'image'
+}
+
+/** 将压缩结果写入用户目录，返回文件路径。
+ * 传入 baseName 时命名为 `${baseName}_${短后缀}.${ext}`（base36 时间戳 + 随机，
+ *  共约 10 字符，唯一且短）；否则沿用 kix_ 前缀内部命名。 */
+export function writeResultFile(
+  buffer: ArrayBuffer,
+  ext: string,
+  baseName?: string
+): Promise<string> {
+  const stamp = Date.now().toString(36)
+  const rand = Math.floor(Math.random() * 1296).toString(36).padStart(2, '0') // 2 位 base36 随机
+  const fileName = baseName
+    ? `${sanitizeFileName(baseName)}_${stamp}${rand}.${ext}`
+    : `kix_${Date.now()}_${Math.floor(Math.random() * 1e6)}.${ext}`
   const filePath = `${Taro.env.USER_DATA_PATH}/${fileName}`
   return new Promise((resolve, reject) => {
     Taro.getFileSystemManager().writeFile({
