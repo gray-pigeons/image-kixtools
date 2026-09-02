@@ -43,6 +43,40 @@ if (typeof g.cancelIdleCallback === 'undefined') {
   }
 }
 
+// 埋点代码还会继续访问 window.location / navigator / requestAnimationFrame
+// 等浏览器全局（缺失时报 cannot read property 'location' of undefined 等），
+// 这里一并补齐。注意：window 会改变 Emscripten 的 ENVIRONMENT_IS_WEB 判定，
+// 构建脚本已将其在源码层面强制为 false，见 scripts/build-worker.mjs。
+if (typeof g.window === 'undefined') {
+  g.window = g
+}
+if (typeof g.location === 'undefined') {
+  g.location = {
+    href: '',
+    protocol: 'http:',
+    host: '',
+    hostname: '',
+    port: '',
+    pathname: '/',
+    search: '',
+    hash: '',
+    origin: 'null',
+  }
+}
+if (typeof g.navigator === 'undefined') {
+  g.navigator = { userAgent: 'MiniProgramWorker', language: 'zh-CN', languages: ['zh-CN'] }
+}
+if (typeof g.requestAnimationFrame === 'undefined') {
+  g.requestAnimationFrame = (cb: (ts: number) => void): number => {
+    return setTimeout(() => cb(Date.now()), 16) as unknown as number
+  }
+}
+if (typeof g.cancelAnimationFrame === 'undefined') {
+  g.cancelAnimationFrame = (id: number) => {
+    clearTimeout(id)
+  }
+}
+
 // wasm 解码器返回 RGBA 像素时构造 ImageData（鸭子类型：data/width/height）
 if (typeof g.ImageData === 'undefined') {
   g.ImageData = class ImageData {

@@ -36,10 +36,16 @@ worker.onMessage((msg: CompressRequest) => {
       })
     })
     .catch((err) => {
+      // 附带堆栈前几帧，便于在图片列表中直接定位报错来源
+      const message = (err && err.message) || String(err)
+      const stack =
+        err && err.stack
+          ? ' [' + String(err.stack).split('\n').slice(0, 3).join(' <= ') + ']'
+          : ''
       worker.postMessage({
         type: 'error',
         id,
-        message: (err && err.message) || String(err),
+        message: message + stack,
       })
     })
 })

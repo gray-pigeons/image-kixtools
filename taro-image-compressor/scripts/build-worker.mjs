@@ -32,6 +32,12 @@ const patchJsquashGlue = {
         /ENVIRONMENT_IS_WORKER=typeof importScripts=="function"/g,
         'ENVIRONMENT_IS_WORKER=false'
       )
+      // worker 运行时垫片会定义 window（供开发者工具埋点代码访问），
+      // 这里同步禁用 web 分支，避免 Emscripten 因 window 存在而走浏览器加载路径
+      code = code.replace(
+        /ENVIRONMENT_IS_WEB=typeof window=="object"/g,
+        'ENVIRONMENT_IS_WEB=false'
+      )
       // 防御：万一未来版本改写判定写法，兜底消灭对 self.location 的直接访问
       code = code.replace(/scriptDirectory=self\.location\.href/g, 'scriptDirectory=""')
       if (code === before) {

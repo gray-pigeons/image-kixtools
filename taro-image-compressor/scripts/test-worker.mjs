@@ -150,6 +150,19 @@ const jpeg2 = await compress(4, webp.buffer, 'webp', 'jpeg', 75)
 assert(jpeg2.type === 'done', 'WebP 解码再编码成功')
 assert(jpeg2.size > 0, `输出非空（${jpeg2.size} 字节）`)
 
+console.log('[test] JPEG 回环：JPEG -> WebP')
+const webp2 = await compress(6, jpeg.buffer, 'jpeg', 'webp', 75)
+assert(webp2.type === 'done', 'JPEG 解码再编码成功')
+assert(webp2.size > 0, `输出非空（${webp2.size} 字节）`)
+{
+  const head = new Uint8Array(webp2.buffer, 0, 12)
+  assert(
+    head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46 &&
+      head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50,
+    '输出为合法 WebP（RIFF....WEBP 魔数）'
+  )
+}
+
 console.log('[test] 错误路径：非法数据')
 const bad = await compress(5, new ArrayBuffer(16), 'png', 'webp', 75)
 assert(bad.type === 'error', '非法输入返回 error 而非崩溃')
