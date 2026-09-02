@@ -119,6 +119,7 @@ export default function Index() {
         resultPath,
         resultSize: outBuffer.byteLength,
         outputType: outType,
+        sourceType,
         qualityUsed: q,
       })
     } catch (e: any) {
@@ -437,7 +438,11 @@ export default function Index() {
                   <View className="item-name-row">
                     <Text className="item-name">{item.name}</Text>
                     {item.status === 'complete' && fmt && (
-                      <Text className="badge">{fmt.label}</Text>
+                      <Text className="badge">
+                        {item.sourceType && item.sourceType !== item.outputType
+                          ? `${FORMATS.find((f) => f.type === item.sourceType)?.label ?? ''} → ${fmt.label}`
+                          : fmt.label}
+                      </Text>
                     )}
                   </View>
 

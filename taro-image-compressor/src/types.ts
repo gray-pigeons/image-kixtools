@@ -16,6 +16,8 @@ export interface ImageItem {
   resultSize?: number
   /** 该条结果使用的输出格式与质量 */
   outputType?: OutputType
+  /** 源图片实际格式（压缩时检测） */
+  sourceType?: SourceType
   qualityUsed?: number
   error?: string
 }
