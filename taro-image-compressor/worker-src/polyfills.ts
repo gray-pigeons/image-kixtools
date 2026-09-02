@@ -7,6 +7,22 @@
  */
 const g: any = globalThis as any
 
+// Emscripten 胶水在 worker 分支读取 self.location.href，而微信 worker
+// 没有 self 全局（会抛 cannot read property 'location' of undefined）
+if (typeof g.self === 'undefined') {
+  g.self = g
+}
+if (!g.self.location) {
+  g.self.location = { href: '' }
+}
+
+// 开发者工具的 worker 沙箱实现（ide extensions/worker/implement）在
+// WXWebAssembly.instantiate 上报指标时引用 __global；缺失时抛
+// ReferenceError: __global is not defined
+if (typeof g.__global === 'undefined') {
+  g.__global = g
+}
+
 // wasm 解码器返回 RGBA 像素时构造 ImageData（鸭子类型：data/width/height）
 if (typeof g.ImageData === 'undefined') {
   g.ImageData = class ImageData {
