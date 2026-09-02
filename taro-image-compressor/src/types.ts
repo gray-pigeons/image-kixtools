@@ -7,6 +7,8 @@ export interface ImageItem {
   name: string
   /** 原图临时文件路径 */
   originalPath: string
+  /** 缩略图显示地址（http://tmp 兜底为 base64 data URL） */
+  thumbSrc?: string
   originalSize: number
   status: 'pending' | 'processing' | 'complete' | 'error'
   /** 压缩结果文件路径（USER_DATA_PATH 下） */

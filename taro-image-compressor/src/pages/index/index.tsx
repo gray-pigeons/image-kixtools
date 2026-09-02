@@ -5,7 +5,9 @@ import { Button, Image, Slider, Text, View } from '@tarojs/components'
 import './index.scss'
 import {
   compressor,
+  mimeOfPath,
   persistTempFile,
+  readFileBase64,
   readFileBuffer,
   unlinkQuiet,
   writeResultFile,
@@ -149,10 +151,19 @@ export default function Index() {
     const persisted = await Promise.all(
       files.map(async (f) => ({ ...f, path: await persistTempFile(f.path) }))
     )
-    const items: ImageItem[] = persisted.map((f) => ({
+    // 持久化仍失败（路径还是 http://）时，读成 base64 data URL 作为缩略图兜底
+    const withThumb = await Promise.all(
+      persisted.map(async (f) => {
+        if (!/^https?:\/\//i.test(f.path) || f.size > 8 * 1024 * 1024) return f
+        const base64 = await readFileBase64(f.path)
+        return base64 ? { ...f, thumbSrc: `data:${mimeOfPath(f.path)};base64,${base64}` } : f
+      })
+    )
+    const items: ImageItem[] = withThumb.map((f) => ({
       id: nextId(),
       name: baseName(f.name || '', f.path),
       originalPath: f.path,
+      thumbSrc: f.thumbSrc,
       originalSize: f.size,
       status: 'pending',
     }))
@@ -403,7 +414,7 @@ export default function Index() {
               <View className="list-item" key={item.id}>
                 <Image
                   className="thumb"
-                  src={item.originalPath}
+                  src={item.thumbSrc || item.originalPath}
                   mode="aspectFill"
                   lazyLoad
                 />

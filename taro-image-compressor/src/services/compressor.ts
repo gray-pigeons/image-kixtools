@@ -131,12 +131,18 @@ export function persistTempFile(tempPath: string): Promise<string> {
   return new Promise((resolve) => {
     fsm.saveFile({
       tempFilePath: tempPath,
-      success: (res) => resolve(res.savedFilePath),
-      fail: () => {
+      success: (res) => {
+        console.info('[persist] saveFile 成功:', res.savedFilePath)
+        resolve(res.savedFilePath)
+      },
+      fail: (e1) => {
         fsm.copyFile({
           srcPath: tempPath,
           destPath: filePath,
-          success: () => resolve(filePath),
+          success: () => {
+            console.info('[persist] copyFile 成功:', filePath)
+            resolve(filePath)
+          },
           fail: () => {
             fsm.readFile({
               filePath: tempPath,
@@ -144,17 +150,46 @@ export function persistTempFile(tempPath: string): Promise<string> {
                 fsm.writeFile({
                   filePath,
                   data: read.data,
-                  success: () => resolve(filePath),
-                  fail: () => resolve(tempPath),
+                  success: () => {
+                    console.info('[persist] readFile+writeFile 成功:', filePath)
+                    resolve(filePath)
+                  },
+                  fail: () => {
+                    console.warn('[persist] 全部持久化方式失败，回退原路径', e1)
+                    resolve(tempPath)
+                  },
                 })
               },
-              fail: () => resolve(tempPath),
+              fail: () => {
+                console.warn('[persist] 全部持久化方式失败，回退原路径', e1)
+                resolve(tempPath)
+              },
             })
           },
         })
       },
     })
   })
+}
+
+/** 读取文件为 base64（用于 http://tmp 路径的缩略图兜底显示） */
+export function readFileBase64(filePath: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    Taro.getFileSystemManager().readFile({
+      filePath,
+      encoding: 'base64',
+      success: (res) => resolve(res.data as string),
+      fail: () => resolve(null),
+    })
+  })
+}
+
+/** 根据扩展名推断 data URL 的 MIME 前缀 */
+export function mimeOfPath(path: string): string {
+  const ext = path.split('?')[0].split('.').pop()?.toLowerCase() || ''
+  if (ext === 'png') return 'image/png'
+  if (ext === 'webp') return 'image/webp'
+  return 'image/jpeg'
 }
 
 /** 尽力删除文件，失败不抛错 */
