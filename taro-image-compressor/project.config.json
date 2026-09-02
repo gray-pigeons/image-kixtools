@@ -2,7 +2,7 @@
   "miniprogramRoot": "dist/",
   "projectname": "taro-image-compressor",
   "description": "Kix 图片压缩 - 微信小程序版（Taro + WASM 本地压缩）",
-  "appid": "touristappid",
+  "appid": "wxe7db65193d343523",
   "setting": {
     "urlCheck": true,
     "es6": true,
