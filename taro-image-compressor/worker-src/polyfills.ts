@@ -66,6 +66,18 @@ if (typeof g.location === 'undefined') {
 if (typeof g.navigator === 'undefined') {
   g.navigator = { userAgent: 'MiniProgramWorker', language: 'zh-CN', languages: ['zh-CN'] }
 }
+// document：埋点代码链条上另一个常见访问点（document.location 等）。
+// currentScript 置 null 使 Emscripten 的 typeof 守卫分支安全跳过
+//（ENVIRONMENT_IS_WEB 已在构建期强制为 false，web 分支不会进入）。
+if (typeof g.document === 'undefined') {
+  g.document = {
+    currentScript: null,
+    title: '',
+    get location() {
+      return g.location
+    },
+  }
+}
 if (typeof g.requestAnimationFrame === 'undefined') {
   g.requestAnimationFrame = (cb: (ts: number) => void): number => {
     return setTimeout(() => cb(Date.now()), 16) as unknown as number

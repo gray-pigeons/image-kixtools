@@ -17,3 +17,6 @@ declare const WXWebAssembly: {
 
 /** Emscripten 模块工厂（Squoosh 风格，MODULARIZE 产物） */
 declare type EmscriptenFactory = (options: Record<string, any>) => any
+
+/** 构建期由 esbuild define 注入的版本标识（git 短哈希 + 时间戳） */
+declare const __BUILD_STAMP__: string

@@ -11,6 +11,9 @@
 import './polyfills'
 import { decode, encode } from './codecs'
 
+// 启动即打印构建标识，用于在控制台一眼确认实际运行的是哪个版本
+console.info(`[worker] build: ${__BUILD_STAMP__}`)
+
 interface CompressRequest {
   type: 'compress'
   id: number

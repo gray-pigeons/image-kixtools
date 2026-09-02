@@ -6,9 +6,18 @@
  * WASM 二进制由 pack-wasm.mjs 单独处理并放在 worker 目录外。
  */
 import { mkdirSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import { build } from 'esbuild'
 
 mkdirSync('workers', { recursive: true })
+
+// 构建标识：git 短哈希 + 时间戳，worker 启动时打印，用于确认实际运行的版本
+let buildStamp = new Date().toISOString().replace(/\.\d+Z$/, 'Z')
+try {
+  buildStamp = `${execSync('git rev-parse --short HEAD').toString().trim()} ${buildStamp}`
+} catch {
+  /* 无 git 环境时仅用时间戳 */
+}
 
 /**
  * 构建期改写 @jsquash 的 Emscripten 胶水：
@@ -59,6 +68,7 @@ const result = await build({
   legalComments: 'inline',
   logLevel: 'info',
   metafile: true,
+  define: { __BUILD_STAMP__: JSON.stringify(buildStamp) },
   plugins: [patchJsquashGlue],
 })
 
