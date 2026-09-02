@@ -23,6 +23,26 @@ if (typeof g.__global === 'undefined') {
   g.__global = g
 }
 
+// 同一上报逻辑随后调用 __global.requestIdleCallback（浏览器 API，
+// 小程序 worker 没有）；用 setTimeout 模拟：立即以充足剩余时间执行回调。
+// 该调用只是开发者工具的内部埋点，语义上无需精确定现。
+if (typeof g.requestIdleCallback === 'undefined') {
+  g.requestIdleCallback = (
+    cb: (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void
+  ): number => {
+    const start = Date.now()
+    return setTimeout(
+      () => cb({ didTimeout: false, timeRemaining: () => Math.max(0, 50 - (Date.now() - start)) }),
+      1
+    ) as unknown as number
+  }
+}
+if (typeof g.cancelIdleCallback === 'undefined') {
+  g.cancelIdleCallback = (id: number) => {
+    clearTimeout(id)
+  }
+}
+
 // wasm 解码器返回 RGBA 像素时构造 ImageData（鸭子类型：data/width/height）
 if (typeof g.ImageData === 'undefined') {
   g.ImageData = class ImageData {
