@@ -10,6 +10,38 @@ import { build } from 'esbuild'
 
 mkdirSync('workers', { recursive: true })
 
+/**
+ * 构建期改写 @jsquash 的 Emscripten 胶水：
+ *
+ * 胶水内 `ENVIRONMENT_IS_WORKER = typeof importScripts == "function"`，
+ * 微信开发者工具的 worker 沙箱定义了 importScripts，导致走 worker 分支
+ * 读取 self.location.href，而该沙箱的作用域没有 self（运行时垫片不生效），
+ * 抛出 cannot read property 'location' of undefined。
+ *
+ * 这里直接把判定改为 false，配合注入的 instantiateWasm（WXWebAssembly），
+ * 所有 worker/web 专属的加载分支都不会执行，路径解析完全由 locateFile 接管。
+ */
+const patchJsquashGlue = {
+  name: 'patch-jsquash-glue',
+  setup(build) {
+    build.onLoad({ filter: /node_modules\/@jsquash\/.*\/codec\/.*\.js$/ }, async (args) => {
+      const fs = await import('node:fs')
+      let code = fs.readFileSync(args.path, 'utf8')
+      const before = code
+      code = code.replace(
+        /ENVIRONMENT_IS_WORKER=typeof importScripts=="function"/g,
+        'ENVIRONMENT_IS_WORKER=false'
+      )
+      // 防御：万一未来版本改写判定写法，兜底消灭对 self.location 的直接访问
+      code = code.replace(/scriptDirectory=self\.location\.href/g, 'scriptDirectory=""')
+      if (code === before) {
+        console.warn(`[build-worker] 未匹配到补丁点: ${args.path}`)
+      }
+      return { contents: code, loader: 'js' }
+    })
+  },
+}
+
 const result = await build({
   entryPoints: ['worker-src/index.ts'],
   bundle: true,
@@ -21,6 +53,7 @@ const result = await build({
   legalComments: 'inline',
   logLevel: 'info',
   metafile: true,
+  plugins: [patchJsquashGlue],
 })
 
 console.log('[build-worker] workers/index.js 已生成')
