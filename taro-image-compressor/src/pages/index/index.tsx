@@ -345,6 +345,12 @@ export default function Index() {
           ))}
         </View>
 
+        {outputType === 'png' && (
+          <Text className="pick-hint">
+            PNG 为无损格式：PNG 原图会被无损优化，但 JPEG/WebP 照片转 PNG 体积通常反而增大
+          </Text>
+        )}
+
         {showQuality && (
           <View className="quality-row">
             <Text className="quality-label">质量</Text>
@@ -390,7 +396,13 @@ export default function Index() {
               图片列表
               {stats.count > 0 && (
                 <Text className="stats">
-                  {'  '}已压缩 {stats.count} 张，节省 {stats.saved}%
+                  {'  '}已压缩 {stats.count} 张，共 {formatFileSize(stats.before)} →{' '}
+                  {formatFileSize(stats.after)}
+                  {stats.saved > 0
+                    ? `，节省 ${stats.saved}%`
+                    : stats.saved < 0
+                      ? `，增大 ${-stats.saved}%`
+                      : ''}
                 </Text>
               )}
             </Text>
@@ -405,10 +417,7 @@ export default function Index() {
             const fmt = FORMATS.find((f) => f.type === item.outputType)
             const ratio =
               item.status === 'complete' && item.resultSize != null
-                ? Math.max(
-                    0,
-                    Math.round(((item.originalSize - item.resultSize) / item.originalSize) * 100)
-                  )
+                ? Math.round(((item.originalSize - item.resultSize) / item.originalSize) * 100)
                 : null
             return (
               <View className="list-item" key={item.id}>
@@ -437,7 +446,11 @@ export default function Index() {
                     {item.status === 'complete' && item.resultSize != null && (
                       <Text className="status-done">
                         {formatFileSize(item.originalSize)} → {formatFileSize(item.resultSize)}
-                        {ratio > 0 ? `（小 ${ratio}%）` : ratio === 0 ? '' : '（已是最小）'}
+                        {ratio > 0
+                          ? `（小 ${ratio}%）`
+                          : ratio < 0
+                            ? `（体积增大 ${-ratio}%）`
+                            : ''}
                       </Text>
                     )}
                   </View>
