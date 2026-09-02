@@ -108,6 +108,29 @@ export function writeResultFile(buffer: ArrayBuffer, ext: string): Promise<strin
   })
 }
 
+/**
+ * 将临时文件复制到用户目录并返回新路径。
+ *
+ * 开发者工具模拟器的临时路径形如 http://tmp/xxx.png，新版基础库的
+ * <Image> 组件已禁止 http 协议链接；复制到 USER_DATA_PATH 后得到的
+ * wxfile://usr/... 路径在模拟器与真机上均可正常显示和读取。
+ * 复制失败时退回原路径（真机临时路径本身可用）。
+ */
+export function persistTempFile(tempPath: string): Promise<string> {
+  const rawExt = tempPath.split('?')[0].split('.').pop() || ''
+  const ext = /^[a-zA-Z0-9]{1,5}$/.test(rawExt) ? rawExt.toLowerCase() : 'img'
+  const fileName = `src_${Date.now()}_${Math.floor(Math.random() * 1e6)}.${ext}`
+  const filePath = `${Taro.env.USER_DATA_PATH}/${fileName}`
+  return new Promise((resolve) => {
+    Taro.getFileSystemManager().copyFile({
+      srcPath: tempPath,
+      destPath: filePath,
+      success: () => resolve(filePath),
+      fail: () => resolve(tempPath),
+    })
+  })
+}
+
 /** 尽力删除文件，失败不抛错 */
 export function unlinkQuiet(filePath?: string) {
   if (!filePath) return

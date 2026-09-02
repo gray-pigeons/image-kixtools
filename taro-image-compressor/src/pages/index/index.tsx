@@ -3,7 +3,13 @@ import Taro from '@tarojs/taro'
 import { Button, Image, Slider, Text, View } from '@tarojs/components'
 
 import './index.scss'
-import { compressor, readFileBuffer, unlinkQuiet, writeResultFile } from '../../services/compressor'
+import {
+  compressor,
+  persistTempFile,
+  readFileBuffer,
+  unlinkQuiet,
+  writeResultFile,
+} from '../../services/compressor'
 import { formatFileSize } from '../../utils/format'
 import { detectSourceType, getPngDimensions } from '../../utils/image'
 import type { ImageItem, OutputType, SourceType } from '../../types'
@@ -137,9 +143,13 @@ export default function Index() {
     }
   }
 
-  const addFiles = (files: { path: string; name?: string; size: number }[]) => {
+  const addFiles = async (files: { path: string; name?: string; size: number }[]) => {
     if (!files.length) return
-    const items: ImageItem[] = files.map((f) => ({
+    // 临时路径可能是 http://tmp/...（开发者工具），复制到用户目录后再使用
+    const persisted = await Promise.all(
+      files.map(async (f) => ({ ...f, path: await persistTempFile(f.path) }))
+    )
+    const items: ImageItem[] = persisted.map((f) => ({
       id: nextId(),
       name: baseName(f.name || '', f.path),
       originalPath: f.path,
@@ -206,12 +216,16 @@ export default function Index() {
   const removeItem = (id: string) => {
     const target = imagesRef.current.find((i) => i.id === id)
     if (target?.resultPath) unlinkQuiet(target.resultPath)
+    if (target?.originalPath) unlinkQuiet(target.originalPath)
     imagesRef.current = imagesRef.current.filter((i) => i.id !== id)
     setImages(imagesRef.current)
   }
 
   const clearAll = () => {
-    imagesRef.current.forEach((i) => unlinkQuiet(i.resultPath))
+    imagesRef.current.forEach((i) => {
+      unlinkQuiet(i.resultPath)
+      unlinkQuiet(i.originalPath)
+    })
     imagesRef.current = []
     setImages([])
   }
