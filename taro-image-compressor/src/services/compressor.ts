@@ -196,7 +196,16 @@ export function mimeOfPath(path: string): string {
 export function unlinkQuiet(filePath?: string) {
   if (!filePath) return
   try {
-    Taro.getFileSystemManager().unlink({ filePath, fail: () => {} })
+    const fsm = Taro.getFileSystemManager()
+    // 先预检存在性：真机上结果文件可能已被系统清理（保存相册/发送后转存、
+    // 基础库清缓存等），对不存在的路径直接 unlink 会触发框架 error 日志
+    fsm.access({
+      path: filePath,
+      success: () => fsm.unlink({ filePath, fail: () => {} }),
+      fail: () => {
+        /* 文件已不存在，无需删除 */
+      },
+    })
   } catch {
     /* noop */
   }
