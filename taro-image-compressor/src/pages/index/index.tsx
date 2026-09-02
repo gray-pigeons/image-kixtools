@@ -224,10 +224,16 @@ export default function Index() {
     pump()
   }
 
+  /** 是否为我们持久化到 USER_DATA_PATH 的源图副本（src_ 前缀，可安全删除） */
+  const isOwnedSourceCopy = (path?: string) =>
+    !!path &&
+    path.startsWith(`${Taro.env.USER_DATA_PATH}/`) &&
+    path.includes('/src_')
+
   const removeItem = (id: string) => {
     const target = imagesRef.current.find((i) => i.id === id)
     if (target?.resultPath) unlinkQuiet(target.resultPath)
-    if (target?.originalPath) unlinkQuiet(target.originalPath)
+    if (isOwnedSourceCopy(target?.originalPath)) unlinkQuiet(target.originalPath)
     imagesRef.current = imagesRef.current.filter((i) => i.id !== id)
     setImages(imagesRef.current)
   }
@@ -235,7 +241,7 @@ export default function Index() {
   const clearAll = () => {
     imagesRef.current.forEach((i) => {
       unlinkQuiet(i.resultPath)
-      unlinkQuiet(i.originalPath)
+      if (isOwnedSourceCopy(i.originalPath)) unlinkQuiet(i.originalPath)
     })
     imagesRef.current = []
     setImages([])
