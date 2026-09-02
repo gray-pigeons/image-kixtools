@@ -5,3 +5,4 @@ workers/
 wasm/
 .DS_Store
 *.log
+.swc/
