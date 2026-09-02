@@ -22,4 +22,8 @@ export interface ImageItem {
   error?: string
   /** 压缩进度百分比（0-100，仅 processing 状态有值） */
   progress?: number
+  /** png 输出引擎：'oxipng' | 'png'(基础回退) | 'original'(保持原图) */
+  engine?: string
+  /** oxipng 失败原因（真机诊断用） */
+  engineError?: string
 }

@@ -2,12 +2,27 @@ import Taro from '@tarojs/taro'
 
 /** Worker -> 主线程消息 */
 type WorkerMessage =
-  | { type: 'done'; id: number; buffer: ArrayBuffer; size: number }
+  | {
+      type: 'done'
+      id: number
+      buffer: ArrayBuffer
+      size: number
+      engine?: string
+      engineError?: string
+    }
   | { type: 'error'; id: number; message: string }
   | { type: 'progress'; id: number; progress: number }
 
+export interface CompressResult {
+  buffer: ArrayBuffer
+  /** png 输出引擎：'oxipng' | 'png'(基础回退) | 'original'(保持原图) */
+  engine?: string
+  /** oxipng 失败原因（真机诊断用） */
+  engineError?: string
+}
+
 interface PendingJob {
-  resolve: (buffer: ArrayBuffer) => void
+  resolve: (result: CompressResult) => void
   reject: (error: Error) => void
   onProgress?: (progress: number) => void
 }
@@ -37,7 +52,7 @@ class CompressWorkerService {
       }
       this.pending.delete(msg.id)
       if (msg.type === 'done' && msg.buffer) {
-        job.resolve(msg.buffer)
+        job.resolve({ buffer: msg.buffer, engine: msg.engine, engineError: msg.engineError })
       } else {
         job.reject(new Error(msg.message || '压缩失败'))
       }
@@ -71,10 +86,10 @@ class CompressWorkerService {
     outputType: string,
     quality: number,
     onProgress?: (progress: number) => void
-  ): Promise<ArrayBuffer> {
+  ): Promise<CompressResult> {
     const worker = this.ensureWorker()
     const id = this.seq++
-    return new Promise<ArrayBuffer>((resolve, reject) => {
+    return new Promise<CompressResult>((resolve, reject) => {
       this.pending.set(id, { resolve, reject, onProgress })
       worker.postMessage({
         type: 'compress',

@@ -89,14 +89,22 @@ export async function decode(sourceType: string, buffer: ArrayBuffer): Promise<R
   return result as RawImageData
 }
 
+export interface EncodeResult {
+  buffer: ArrayBuffer
+  /** 实际使用的编码引擎（png 输出：oxipng=优化版 / png=基础回退） */
+  engine: string
+  /** oxipng 失败时的原因（用于真机诊断，透传到主线程展示） */
+  engineError?: string
+}
+
 export async function encode(
   outputType: EncodeOutputType,
   image: RawImageData,
   quality: number
-): Promise<ArrayBuffer> {
+): Promise<EncodeResult> {
   if (outputType === 'png') {
     // 优先使用 oxipng 优化编码（自适应过滤策略搜索，PNG→PNG 时通常可进一步减小体积）；
-    // 失败时回退到基础 PNG 编码器
+    // 失败时回退到基础 PNG 编码器，并透传失败原因（真机 SIMD/内存限制等）
     try {
       await getOxipng()
       const out = oxipng.optimise_raw(
@@ -108,16 +116,18 @@ export async function encode(
         false // optimiseAlpha
       )
       if (out && out.length) {
-        return out.buffer as ArrayBuffer
+        return { buffer: out.buffer as ArrayBuffer, engine: 'oxipng' }
       }
-    } catch (err) {
-      console.warn('[codecs] oxipng 优化失败，回退基础 PNG 编码:', err)
+      throw new Error('oxipng 输出为空')
+    } catch (err: any) {
+      const reason = err?.message ? String(err.message).slice(0, 200) : String(err).slice(0, 200)
+      console.warn('[codecs] oxipng 优化失败，回退基础 PNG 编码:', reason)
+      await getPng()
+      const out = await pngCodec.encode(image.data as Uint8Array, image.width, image.height)
+      if (!out || !out.length) throw new Error('PNG 编码失败')
+      // wasm-bindgen 胶水已 slice 出紧凑数组，直接取 buffer
+      return { buffer: out.buffer as ArrayBuffer, engine: 'png', engineError: reason }
     }
-    await getPng()
-    const out = await pngCodec.encode(image.data as Uint8Array, image.width, image.height)
-    if (!out || !out.length) throw new Error('PNG 编码失败')
-    // wasm-bindgen 胶水已 slice 出紧凑数组，直接取 buffer
-    return out.buffer as ArrayBuffer
   }
 
   if (outputType !== 'jpeg' && outputType !== 'webp') {
@@ -135,5 +145,5 @@ export async function encode(
   // 防御性拷贝：编码结果可能是指向 wasm 线性内存的视图
   const copy = new Uint8Array(result.byteLength)
   copy.set(result)
-  return copy.buffer
+  return { buffer: copy.buffer, engine: outputType }
 }

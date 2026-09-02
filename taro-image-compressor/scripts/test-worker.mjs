@@ -172,6 +172,7 @@ assert(jpeg.reply.type === 'done', '压缩成功返回 done')
 console.log('[test] PNG -> PNG（无损重编码）')
 const pngOut = await compress(3, png.buffer.slice(png.byteOffset, png.byteOffset + png.length), 'png', 'png', 100)
 assert(pngOut.reply.type === 'done', '压缩成功返回 done')
+assert(pngOut.reply.engine === 'oxipng', `PNG 编码使用 oxipng 引擎（实际: ${pngOut.reply.engine}）`)
 {
   const head = new Uint8Array(pngOut.reply.buffer, 0, 4)
   assert(
@@ -179,6 +180,14 @@ assert(pngOut.reply.type === 'done', '压缩成功返回 done')
     '输出为合法 PNG（89504E47 魔数）'
   )
 }
+
+console.log('[test] PNG -> PNG（已优化图再压缩，应保持原图）')
+const pngOut2 = await compress(7, pngOut.reply.buffer, 'png', 'png', 100)
+assert(pngOut2.reply.type === 'done', '压缩成功返回 done')
+assert(
+  pngOut2.reply.engine === 'original' && pngOut2.reply.size === pngOut.reply.size,
+  `已是最优时保持原字节（engine: ${pngOut2.reply.engine}）`
+)
 
 console.log('[test] WebP 回环：WebP -> JPEG')
 const jpeg2 = await compress(4, webp.reply.buffer, 'webp', 'jpeg', 75)

@@ -4,7 +4,11 @@
  * 消息协议（主线程 <-> Worker，二进制经 postMessage 复制传递，基础库 >= 2.20.2）：
  *   入： { type: 'compress', id, buffer, sourceType, outputType, quality }
  *   出： { type: 'progress', id, progress }（阶段节点：20 开始解码 / 60 开始编码）
- *      | { type: 'done', id, buffer, size } | { type: 'error', id, message }
+ *      | { type: 'done', id, buffer, size, engine, engineError? }
+ *      | { type: 'error', id, message }
+ *
+ * engine（png 输出专用）：'oxipng' 优化编码 / 'png' 基础回退 / 'original' 保持原图
+ * （PNG→PNG 且重编码不小于原图时直接返回原字节，保证无损场景绝不变大）
  *
  * Worker 线程内全局暴露 worker 对象（无 wx API），
  * WASM 模块位于代码包 /wasm 目录（必须在 worker 目录之外）。
@@ -35,12 +39,21 @@ worker.onMessage((msg: CompressRequest) => {
       worker.postMessage({ type: 'progress', id, progress: 20 })
       const imageData = await decode(sourceType, buffer)
       worker.postMessage({ type: 'progress', id, progress: 60 })
-      const outBuffer = await encode(outputType as any, imageData, quality)
+      const result = await encode(outputType as any, imageData, quality)
+      let outBuffer = result.buffer
+      let engine = result.engine
+      // PNG→PNG 无损场景：重编码不小于原图时直接保持原字节，绝不变大
+      if (sourceType === 'png' && outputType === 'png' && outBuffer.byteLength >= buffer.byteLength) {
+        outBuffer = buffer
+        engine = 'original'
+      }
       worker.postMessage({
         type: 'done',
         id,
         buffer: outBuffer,
         size: outBuffer.byteLength,
+        engine,
+        engineError: result.engineError,
       })
     })
     .catch((err) => {

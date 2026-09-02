@@ -127,7 +127,7 @@ export default function Index() {
         }
       }
 
-      const outBuffer = await compressor.compress(
+      const result = await compressor.compress(
         buffer,
         sourceType,
         outType,
@@ -136,7 +136,12 @@ export default function Index() {
           if (p > cap) cap = p
         }
       )
+      const outBuffer = result.buffer
       if (!outBuffer.byteLength) throw new Error('压缩失败')
+      // oxipng 在真机失败的诊断信息（vConsole / 真机调试可见）
+      if (result.engineError) {
+        console.warn('[png] oxipng 不可用，已用基础编码:', result.engineError)
+      }
 
       const resultPath = await writeResultFile(outBuffer, fmt.ext)
       stopTick()
@@ -148,6 +153,8 @@ export default function Index() {
         sourceType,
         qualityUsed: q,
         progress: undefined,
+        engine: result.engine,
+        engineError: result.engineError,
       })
     } catch (e: any) {
       stopTick()
@@ -247,6 +254,8 @@ export default function Index() {
           resultPath: undefined,
           resultSize: undefined,
           progress: undefined,
+          engine: undefined,
+          engineError: undefined,
         }
       }
       return i
@@ -472,6 +481,8 @@ export default function Index() {
                         {item.sourceType && item.sourceType !== item.outputType
                           ? `${FORMATS.find((f) => f.type === item.sourceType)?.label ?? ''} → ${fmt.label}`
                           : fmt.label}
+                        {item.outputType === 'png' && item.engine === 'png' && '·基础'}
+                        {item.outputType === 'png' && item.engine === 'original' && '·原图'}
                       </Text>
                     )}
                   </View>
@@ -490,12 +501,15 @@ export default function Index() {
                     )}
                     {item.status === 'complete' && item.resultSize != null && (
                       <Text className="status-done">
-                        {formatFileSize(item.originalSize)} → {formatFileSize(item.resultSize)}
-                        {ratio > 0
-                          ? `（小 ${ratio}%）`
-                          : ratio < 0
-                            ? `（体积增大 ${-ratio}%）`
-                            : ''}
+                        {item.engine === 'original'
+                          ? `${formatFileSize(item.resultSize)}（已是最优，保持原图）`
+                          : `${formatFileSize(item.originalSize)} → ${formatFileSize(item.resultSize)}${
+                              ratio && ratio > 0
+                                ? `（小 ${ratio}%）`
+                                : ratio && ratio < 0
+                                  ? `（体积增大 ${-ratio}%）`
+                                  : ''
+                            }`}
                       </Text>
                     )}
                   </View>
