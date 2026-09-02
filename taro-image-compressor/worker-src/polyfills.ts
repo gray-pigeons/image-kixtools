@@ -106,8 +106,20 @@ if (typeof g.ImageData === 'undefined') {
   }
 }
 
-// wasm-bindgen 胶水用 TextDecoder 解析 wasm 内抛出的错误信息
-if (typeof g.TextDecoder === 'undefined') {
+// wasm-bindgen 胶水用 TextDecoder 解析 wasm 内抛出的错误信息。
+// 注意：真机 worker 运行于精简版 Node.js（no-ICU 编译），原生 TextDecoder
+// 存在但不支持 { fatal: true } 选项，会抛 ERR_NO_ICU 导致 worker 顶层崩溃。
+// 因此除了缺失时补齐，还要探测 fatal 支持性，残缺实现也必须强制覆盖。
+let needTextDecoderShim = typeof g.TextDecoder === 'undefined'
+if (!needTextDecoderShim) {
+  try {
+    new g.TextDecoder('utf-8', { fatal: true })
+  } catch {
+    needTextDecoderShim = true
+    console.warn('[worker] 原生 TextDecoder 不支持 fatal 选项，已启用纯 JS 实现')
+  }
+}
+if (needTextDecoderShim) {
   g.TextDecoder = class TextDecoder {
     decode(input?: ArrayBuffer | ArrayBufferView | null): string {
       if (!input) return ''

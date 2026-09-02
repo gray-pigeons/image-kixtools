@@ -33,7 +33,32 @@ globalThis.WXWebAssembly = {
   },
 }
 
+// 模拟真机 no-ICU Node：TextDecoder 存在但不支持 { fatal: true }。
+// polyfill 应探测到残缺并强制覆盖为纯 JS 实现。
+class BrokenTextDecoder {
+  constructor(label, options) {
+    if (options && options.fatal) {
+      throw new TypeError('[ERR_NO_ICU] "fatal" option is not supported')
+    }
+  }
+  decode() {
+    return ''
+  }
+}
+globalThis.TextDecoder = BrokenTextDecoder
+
 require('../workers/index.js')
+
+// polyfill 生效校验：TextDecoder 必须已被覆盖为支持 fatal 的实现
+{
+  const td = new globalThis.TextDecoder('utf-8', { fatal: true })
+  const bytes = new Uint8Array([0xe4, 0xbd, 0xa0, 0xe5, 0xa5, 0xbd]) // "你好"
+  const text = td.decode(bytes)
+  if (text !== '你好') {
+    throw new Error(`断言失败: TextDecoder 垫片解码不正确（得到 "${text}"）`)
+  }
+  console.log('  ✓ 残缺 TextDecoder 已被探测并覆盖（真机 no-ICU 回归）')
+}
 
 // ---- 生成一张测试 PNG（64x64 RGBA 渐变） ----
 const CRC_TABLE = (() => {
