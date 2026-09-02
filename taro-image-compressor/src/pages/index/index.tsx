@@ -5,10 +5,12 @@ import { Button, Image, Slider, Text, View } from '@tarojs/components'
 import './index.scss'
 import {
   compressor,
+  copyFileQuiet,
   mimeOfPath,
   persistTempFile,
   readFileBase64,
   readFileBuffer,
+  sanitizeFileName,
   unlinkQuiet,
   writeResultFile,
 } from '../../services/compressor'
@@ -329,7 +331,51 @@ export default function Index() {
 
   const saveItem = async (item: ImageItem) => {
     if (!item.resultPath) return
-    const ok = await saveToAlbum(item.resultPath)
+    const fmt = FORMATS.find((f) => f.type === item.outputType)!
+    const defaultName = item.resultName || item.name
+
+    // 二次确认 + 自定义名称（editable 需基础库 >= 2.17.1，
+    // 不支持的环境退化为普通确认框，content 为空时使用默认名）
+    let nameToUse = defaultName
+    let confirmed = false
+    try {
+      const res = await Taro.showModal({
+        title: '保存到相册',
+        content: defaultName,
+        editable: true,
+        placeholderText: defaultName,
+        confirmText: '保存',
+        cancelText: '取消',
+      })
+      confirmed = !!res.confirm
+      const edited = (res.content || '').trim()
+      if (edited) nameToUse = sanitizeFileName(edited)
+    } catch {
+      /* 交互失败不保存，避免误写相册 */
+      return
+    }
+    if (!confirmed) return
+
+    // 相册以物理文件名命名：自定义名与结果文件不一致时生成重命名副本
+    let savePath = item.resultPath
+    if (nameToUse !== defaultName) {
+      const ext = fmt.ext
+      // 目标已存在（同名二次保存）时加短随机重试一次
+      const candidates = [
+        nameToUse,
+        `${nameToUse}_${Date.now().toString(36).slice(-4)}${Math.floor(Math.random() * 36).toString(36)}`,
+      ]
+      for (const cand of candidates) {
+        if (await copyFileQuiet(item.resultPath, `${Taro.env.USER_DATA_PATH}/${cand}.${ext}`)) {
+          savePath = `${Taro.env.USER_DATA_PATH}/${cand}.${ext}`
+          break
+        }
+      }
+      // 副本生成失败（重名等）时回退原名保存
+    }
+
+    const ok = await saveToAlbum(savePath)
+    if (savePath !== item.resultPath) unlinkQuiet(savePath) // 清理重命名副本
     Taro.showToast({
       title: ok ? '已保存到相册' : '保存失败，可尝试「发送」为文件',
       icon: ok ? 'success' : 'none',
@@ -352,6 +398,18 @@ export default function Index() {
   const saveAll = async () => {
     const done = imagesRef.current.filter((i) => i.status === 'complete' && i.resultPath)
     if (!done.length) return
+    // 批量保存前二次确认（多张写入相册，避免误触）
+    try {
+      const res = await Taro.showModal({
+        title: '批量保存到相册',
+        content: `将以现有文件名保存 ${done.length} 张图片到相册`,
+        confirmText: '保存',
+        cancelText: '取消',
+      })
+      if (!res.confirm) return
+    } catch {
+      return
+    }
     Taro.showLoading({ title: '保存中...', mask: true })
     let ok = 0
     for (const item of done) {

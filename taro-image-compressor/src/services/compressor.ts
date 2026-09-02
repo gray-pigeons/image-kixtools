@@ -230,6 +230,18 @@ export function mimeOfPath(path: string): string {
   return 'image/jpeg'
 }
 
+/** 复制文件（静默失败返回 false），用于保存相册前按自定义名称生成副本 */
+export function copyFileQuiet(src: string, dest: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    Taro.getFileSystemManager().copyFile({
+      srcPath: src,
+      destPath: dest,
+      success: () => resolve(true),
+      fail: () => resolve(false),
+    })
+  })
+}
+
 /** 尽力删除文件，失败不抛错 */
 export function unlinkQuiet(filePath?: string) {
   if (!filePath) return
