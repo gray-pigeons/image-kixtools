@@ -16,6 +16,7 @@ import { defaultOptions as webpDefaultOptions } from '@jsquash/webp/meta.js'
 import { defaultOptions as jpegDefaultOptions } from '@jsquash/jpeg/meta.js'
 
 import * as pngCodec from './vendor/squoosh_png.js'
+import * as oxipng from './vendor/squoosh_oxipng.js'
 import { initEmscriptenCodec } from './wx-emscripten'
 
 export type RawImageData = {
@@ -58,6 +59,14 @@ function getPng(): Promise<unknown> {
   return pngReady
 }
 
+let oxipngReady: Promise<unknown> | null = null
+function getOxipng(): Promise<unknown> {
+  if (!oxipngReady) {
+    oxipngReady = oxipng.default(`${WASM_DIR}/squoosh_oxipng_bg.wasm.br`)
+  }
+  return oxipngReady
+}
+
 export async function decode(sourceType: string, buffer: ArrayBuffer): Promise<RawImageData> {
   if (sourceType === 'png') {
     await getPng()
@@ -86,6 +95,24 @@ export async function encode(
   quality: number
 ): Promise<ArrayBuffer> {
   if (outputType === 'png') {
+    // 优先使用 oxipng 优化编码（自适应过滤策略搜索，PNG→PNG 时通常可进一步减小体积）；
+    // 失败时回退到基础 PNG 编码器
+    try {
+      await getOxipng()
+      const out = oxipng.optimise_raw(
+        image.data as Uint8ClampedArray,
+        image.width,
+        image.height,
+        2, // oxipng 优化级别（Squoosh 默认），过高会显著增加耗时
+        false, // interlace
+        false // optimiseAlpha
+      )
+      if (out && out.length) {
+        return out.buffer as ArrayBuffer
+      }
+    } catch (err) {
+      console.warn('[codecs] oxipng 优化失败，回退基础 PNG 编码:', err)
+    }
     await getPng()
     const out = await pngCodec.encode(image.data as Uint8Array, image.width, image.height)
     if (!out || !out.length) throw new Error('PNG 编码失败')

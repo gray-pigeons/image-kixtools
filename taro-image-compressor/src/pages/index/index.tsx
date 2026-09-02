@@ -354,7 +354,7 @@ export default function Index() {
 
         {outputType === 'png' && (
           <Text className="pick-hint">
-            PNG 为无损格式：PNG 原图会被无损优化，但 JPEG/WebP 照片转 PNG 体积通常反而增大
+            PNG 为无损格式，输出经 oxipng 无损优化；JPEG/WebP 照片转 PNG 体积通常反而增大
           </Text>
         )}
 

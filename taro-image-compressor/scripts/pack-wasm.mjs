@@ -16,6 +16,7 @@ const TARGETS = [
   ['@jsquash/webp/codec/dec/webp_dec.wasm', 'webp_dec'],
   ['@jsquash/webp/codec/enc/webp_enc.wasm', 'webp_enc'],
   ['@jsquash/png/codec/squoosh_png_bg.wasm', 'squoosh_png_bg'],
+  ['@jsquash/oxipng/codec/pkg/squoosh_oxipng_bg.wasm', 'squoosh_oxipng_bg'],
 ]
 
 mkdirSync('wasm', { recursive: true })
