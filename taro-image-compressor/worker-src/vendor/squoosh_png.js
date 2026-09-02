@@ -5,12 +5,17 @@
  * 修改点（适配微信小程序 Worker）：
  *  1. init(wasmPath) 直接接收代码包路径，改用 WXWebAssembly.instantiate 加载，
  *     移除 fetch / WebAssembly.instantiateStreaming / import.meta.url 分支；
- *  2. ImageData / TextDecoder 由 ../polyfills.ts 预先补齐。
+ *  2. ImageData / TextDecoder 由 ../polyfills.ts 预先补齐；
+ *  3. TextDecoder 不带 { fatal: true } 选项：真机 Worker 运行于 no-ICU 的
+ *     精简 Node.js，原生 TextDecoder 一旦传入 fatal 即抛 ERR_NO_ICU；且
+ *     Worker 沙箱对裸标识符做作用域注入，运行期覆盖 globalThis 无效，
+ *     必须在源码层面移除该选项（非 fatal 解码仅把非法序列替换为 U+FFFD，
+ *     用于错误信息文本，无功能影响）。
  */
 
 let wasm;
 
-let cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
+let cachedTextDecoder = new TextDecoder('utf-8');
 
 cachedTextDecoder.decode();
 

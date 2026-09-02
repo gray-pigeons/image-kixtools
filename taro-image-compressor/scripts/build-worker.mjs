@@ -49,6 +49,12 @@ const patchJsquashGlue = {
       )
       // 防御：万一未来版本改写判定写法，兜底消灭对 self.location 的直接访问
       code = code.replace(/scriptDirectory=self\.location\.href/g, 'scriptDirectory=""')
+      // 剥离 TextDecoder 的 fatal 选项：真机 no-ICU Node 一旦传入即抛
+      // ERR_NO_ICU（且 Worker 沙箱作用域注入使运行期覆盖 globalThis 无效）
+      code = code.replace(
+        /new TextDecoder\((["'])utf-8\1\s*,\s*\{[^}]*fatal[^}]*\}\)/g,
+        "new TextDecoder('utf-8')"
+      )
       if (code === before) {
         console.warn(`[build-worker] 未匹配到补丁点: ${args.path}`)
       }
